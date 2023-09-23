@@ -1,8 +1,10 @@
 var mineflayer = require('mineflayer');
-var sleep = require('sleep');
 const prompt = require('prompt-sync')();
 const autoeat = require('mineflayer-auto-eat').plugin;
 const readline = require('node:readline');
+const { pathfinder } = require('mineflayer-pathfinder');
+const pvp = require('mineflayer-pvp').plugin;
+
 
 var host = "";
 var port = 0;
@@ -14,23 +16,32 @@ var alive = false;
 
 username = prompt('Username: ');
 password = "";
-host = prompt('Host: ');
-port = prompt('Port [25565]: ') ? prompt('Port: ') : 25565;
-console.log('Iniciando sesión como ' + username + ' ' + password);
-console.log('Conectando a: ' + host + ':' + port);
+host = prompt('Host [localhost]: ');
+port = prompt('Port [25565]: ');
 
 
 const MIN_FOOD_LEVEL = 4;
-var bot = mineflayer.createBot({
-  host: host,
-  port: port,       // optional
+const options = {
+  host: host ? host : 'localhost',
+  port: port ? port : 25565,
   username: username,
   password: password
-});
+}
+console.log('Iniciando sesión como ' + username + ' ' + password);
+console.log('Conectando a: ' + options.host + ':' + options.port);
+var bot = mineflayer.createBot({...options});
+
+bot.on('error', (error) => {
+  console.log(error);
+})
+
 // load auto-eat plugin
 bot.loadPlugin(autoeat);
+bot.loadPlugin(pathfinder);
+bot.loadPlugin(pvp);
+
 bot.on('autoeat_started', (item, offhand) => {
-  console.log(`Started eating ${item.name} with ${offhand ? 'offhand' : 'mainhand'}`)
+  console.log(`Comiendo ${item.name} en ${offhand ? 'offhand' : 'mainhand'}`)
 })
 
 bot.on('autoeat_error', (error) => {
@@ -48,6 +59,7 @@ var connected = 0;
 var actions = [ 'forward', 'back', 'left', 'right']
 var lastaction;
 var pi = 3.14159;
+var random_activated = true;
 
 bot.on('spawn',function() {
   console.log('-');
@@ -65,6 +77,42 @@ bot.on('health',() => {
   console.log(`Vida: ${bot.health} Comida: ${bot.food}`);
 });
 
+bot.on('chat', (username, message) => {
+  
+  if (message.includes('random_on')) {
+    random_activated = true;
+  }
+
+  if (message.includes('random_off')) {
+    random_activated = false;
+  }
+  
+  if (message.includes('salta_salta')) {
+      bot.setControlState('jump', true)
+      setTimeout(() => {
+        bot.setControlState('jump', false)
+      }, 5000);
+    }
+
+  if (message.includes('golpea!')) {
+      // yaw 88.5
+      // pitch -11
+      const entity = bot.nearestEntity();
+      if (entity.kind != undefined && entity.kind != 'UNKNOWN') {
+        console.log(entity.kind);
+        console.log('Atacando!');
+        bot.attack(entity);
+        console.log('Dejando de atacar');
+      }
+      // setTimeout(() => {
+      //   bot.pvp.stop();
+      // }, 3000);
+    }
+
+  }
+)
+
+
 bot.on('time', function() {
     if (connected <1) {
         return;
@@ -79,6 +127,7 @@ bot.on('time', function() {
         lasttime = bot.time.age;
         // console.log("Age set to " + lasttime)
     } else {
+      if (random_activated) {
         var randomadd = Math.random() * maxrandom * 20;
         var interval = moveinterval*20 + randomadd;
         if (bot.time.age - lasttime > interval) {
@@ -101,6 +150,7 @@ bot.on('time', function() {
                 bot.activateItem();
             }
         }
+      }
     }
 });
 
@@ -151,7 +201,3 @@ bot.on('end', (reason) => {
   }
 
 });
-
-bot.on('error', (error) => {
-  console.log(error);
-})
