@@ -15,7 +15,7 @@ var maxrandom = 5; // 0-5 seconds added to movement interval (randomly)
 var alive = false;
 
 username = prompt('Username: ');
-password = "";
+password = prompt('Password: ');
 host = prompt('Host [localhost]: ');
 port = prompt('Port [25565]: ');
 
@@ -59,9 +59,10 @@ var connected = 0;
 var actions = [ 'forward', 'back', 'left', 'right']
 var lastaction;
 var pi = 3.14159;
-var random_activated = true;
+var afk = false;
+var random_activated = false;
 
-bot.on('spawn',function() {
+bot.on('spawn',() => {
   console.log('-');
   console.log('Bot Spawneado');
   console.log('-');
@@ -71,6 +72,32 @@ bot.on('spawn',function() {
   bot.autoEat.options.priority = 'foodPoints';
   bot.autoEat.options.startAt = 19;
   bot.autoEat.options.useOffhand = false;
+
+  setTimeout(() => {
+    bot.chat('/login ' + password);
+  }, 1000);
+  
+  setInterval(() => {
+    if (!afk){
+      console.log('Intervalo de 25 segundos');
+      const mobFilter = e => e.type === 'hostile';
+      const mob = bot.nearestEntity(mobFilter);
+      
+      if (!mob) {
+        const entity = bot.entities;
+        if (!entity) return;
+        console.log(entity);
+        return;
+      };
+  
+      console.log('Intentando atacar a ' + mob.type);
+      bot.attack(mob);
+      console.log('Niveles de EXP: ' + bot.experience.points);
+      // bot.lookAt(pos, true, () => {
+      // })
+    
+    }
+  }, 25000);
 });
 
 bot.on('health',() => {
@@ -79,11 +106,11 @@ bot.on('health',() => {
 
 bot.on('chat', (username, message) => {
   
-  if (message.includes('random_on')) {
+  if (message.includes('random_onn')) {
     random_activated = true;
   }
 
-  if (message.includes('random_off')) {
+  if (message.includes('random_offf')) {
     random_activated = false;
   }
   
@@ -94,7 +121,7 @@ bot.on('chat', (username, message) => {
       }, 5000);
     }
 
-  if (message.includes('golpea!')) {
+  if (message.includes('golpeawa!')) {
       // yaw 88.5
       // pitch -11
       const entity = bot.nearestEntity();
@@ -114,13 +141,18 @@ bot.on('chat', (username, message) => {
 
 
 bot.on('time', function() {
-    if (connected <1) {
+    if (connected < 1) {
         return;
     }
     
     if (bot.food <= MIN_FOOD_LEVEL){
       console.log('Desconectando bot por falta de comida.');
       bot.quit("noMoreFood");
+    }
+    
+    if (bot.health <= 4) {
+      console.log('Desconectando bot por falta de vida.');
+      bot.quit("noMoreHealth");
     }
     
     if (lasttime<0) {
@@ -133,7 +165,7 @@ bot.on('time', function() {
         if (bot.time.age - lasttime > interval) {
             if (moving == 1) {
                 bot.setControlState(lastaction,false);
-                moving = 0;
+                moving = 0; 
                 // console.log("Stopped moving after " + (interval/20) + " seconds");
                 lasttime = bot.time.age;
             } else {
@@ -161,6 +193,7 @@ bot.on('death', () => {
 
 bot.on('message', (message) => {
   readline.moveCursor(process.stdout, -2, 0)
+  if (message.toString().includes('Guardian')) return;
   console.log(message.toAnsi());
   rl.prompt();
 })
@@ -174,6 +207,11 @@ rl.on('line', (line) => {
     for (var key in bot.players) {
       console.log(key);
     }
+    return
+  }
+  if (line.toString().split(' ')[0] == '/$afk'){
+    afk = !afk;
+    console.log("Cambiando estado AFK a: " + afk);
     return
   }
   readline.moveCursor(process.stdout, 0, -1)
